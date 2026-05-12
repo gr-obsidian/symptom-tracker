@@ -1,0 +1,1587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#16162a">
+<title>Symptom Tracker</title>
+<link rel="manifest" href="manifest.json">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:              #0d0d14;
+  --card:            #16162a;
+  --card2:           #1c1c30;
+  --border:          #2a2a4a;
+  --text:            #d4d4e8;
+  --muted:           #7878a8;
+  --accent:          #7c6fa0;
+  --accent-lit:      #9d8fbd;
+  --food-color:      #5a8a6a;
+  --food-bg:         rgba(90,138,106,0.15);
+  --headache-color:  #8a5a6a;
+  --headache-bg:     rgba(138,90,106,0.15);
+  --vasograin-color: #5a6a8a;
+  --danger:          #7a4a4a;
+  --tag-bg:          #1e1e38;
+  --input-bg:        rgba(255,255,255,0.05);
+  --overlay-bg:      rgba(5,5,16,0.94);
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+/* ── Screens ── */
+.screen { display: none; min-height: 100vh; flex-direction: column; padding-bottom: 72px; }
+.screen.active { display: flex; }
+
+/* ── Header ── */
+.header {
+  background: var(--card);
+  padding: 14px 18px;
+  display: flex; align-items: center; gap: 10px;
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 10;
+}
+.header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; }
+.back-btn {
+  background: none; border: none; color: var(--text);
+  font-size: 1.9rem; cursor: pointer; padding: 0 4px; line-height: 1;
+  -webkit-tap-highlight-color: transparent;
+}
+.hdr-btn {
+  background: none; border: none; color: var(--muted);
+  font-size: 0.8rem; cursor: pointer; padding: 6px 10px;
+  border: 1px solid var(--border); border-radius: 8px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ── Bottom nav ── */
+.bottom-nav {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: var(--card); border-top: 1px solid var(--border);
+  display: flex; z-index: 20; height: 60px;
+}
+.nav-tab {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 2px;
+  background: none; border: none; color: var(--muted);
+  font-size: 0.62rem; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.06em; cursor: pointer;
+  -webkit-tap-highlight-color: transparent; transition: color 0.15s;
+}
+.nav-tab .nav-icon { font-size: 1.25rem; }
+.nav-tab.active { color: var(--accent-lit); }
+
+/* ── Scroll content ── */
+.scroll-content { flex: 1; overflow-y: auto; padding: 16px; }
+
+/* ── Stat cards ── */
+.stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+.stat-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 14px; padding: 14px 16px;
+}
+.stat-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 4px; }
+.stat-value { font-size: 1.9rem; font-weight: 700; color: var(--text); line-height: 1; }
+.stat-sub { font-size: 0.7rem; color: var(--muted); margin-top: 2px; }
+
+/* ── Section label ── */
+.section-label {
+  font-size: 0.68rem; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;
+}
+
+/* ── Entry rows (home + history) ── */
+.entry-row {
+  display: flex; align-items: flex-start; gap: 12px;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 12px 14px; margin-bottom: 8px;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.1s;
+}
+.entry-row:active { border-color: var(--accent); }
+.entry-row.food  { border-left: 3px solid var(--food-color); }
+.entry-row.headache { border-left: 3px solid var(--headache-color); }
+.entry-icon { font-size: 1.2rem; flex-shrink: 0; margin-top: 1px; }
+.entry-body { flex: 1; min-width: 0; }
+.entry-time { font-size: 0.72rem; color: var(--muted); margin-bottom: 2px; }
+.entry-summary { font-size: 0.9rem; font-weight: 600; }
+.entry-detail { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+.sugar-high   { color: #c87a3a; font-weight: 700; font-size: 0.7rem; }
+.sugar-moderate { color: #a89040; font-weight: 700; font-size: 0.7rem; }
+.sugar-low    { color: var(--food-color); font-weight: 700; font-size: 0.7rem; }
+
+.empty-msg { color: var(--muted); font-size: 0.88rem; text-align: center; padding: 28px 0; }
+
+/* ── FAB row ── */
+.fab-row { display: flex; gap: 10px; margin-top: 10px; }
+.fab {
+  flex: 1; background: var(--card2); border: 1px solid var(--border);
+  color: var(--text); border-radius: 14px; padding: 14px 10px;
+  font-size: 0.88rem; font-weight: 700; cursor: pointer;
+  -webkit-tap-highlight-color: transparent; transition: background 0.1s;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.fab:active { background: var(--accent); color: #fff; }
+.fab.food-fab  { border-color: var(--food-color); }
+.fab.head-fab  { border-color: var(--headache-color); }
+
+/* ── Form sections ── */
+.form-section { margin-bottom: 20px; }
+.form-label {
+  font-size: 0.72rem; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; display: block;
+}
+.form-input {
+  width: 100%; background: var(--input-bg); border: 1px solid var(--border);
+  border-radius: 10px; color: var(--text); font-size: 0.95rem;
+  font-family: inherit; padding: 12px 14px; color-scheme: dark;
+}
+.form-input:focus { outline: 2px solid var(--accent); border-color: transparent; }
+textarea.form-input { min-height: 80px; resize: vertical; line-height: 1.5; }
+textarea.form-input::placeholder { color: var(--muted); }
+
+/* ── Time display button ── */
+.time-display {
+  width: 100%; background: var(--input-bg); border: 1px solid var(--border);
+  border-radius: 10px; color: var(--text); font-size: 0.95rem;
+  padding: 12px 14px; cursor: pointer; text-align: left;
+  -webkit-tap-highlight-color: transparent; display: flex;
+  align-items: center; justify-content: space-between;
+}
+.time-display:active { border-color: var(--accent); }
+.time-edit-hint { font-size: 0.72rem; color: var(--muted); }
+
+/* ── Toggle groups ── */
+.toggle-group { display: flex; gap: 8px; flex-wrap: wrap; }
+.toggle-btn {
+  flex: 1; min-width: 0; background: var(--input-bg); border: 1px solid var(--border);
+  color: var(--muted); border-radius: 10px; padding: 11px 8px;
+  font-size: 0.85rem; font-weight: 600; cursor: pointer; text-align: center;
+  -webkit-tap-highlight-color: transparent; transition: all 0.12s;
+  white-space: nowrap;
+}
+.toggle-btn.selected {
+  background: var(--accent); border-color: var(--accent);
+  color: #fff;
+}
+.toggle-btn.food-selected { background: var(--food-color); border-color: var(--food-color); color: #fff; }
+.toggle-btn.head-selected { background: var(--headache-color); border-color: var(--headache-color); color: #fff; }
+
+/* ── Status option cards ── */
+.status-options { display: flex; flex-direction: column; gap: 8px; }
+.status-card {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--input-bg); border: 2px solid var(--border);
+  border-radius: 12px; padding: 14px 16px; cursor: pointer;
+  -webkit-tap-highlight-color: transparent; transition: all 0.12s;
+}
+.status-card.selected-active   { border-color: var(--headache-color); background: var(--headache-bg); }
+.status-card.selected-suspected{ border-color: #8a7a3a; background: rgba(138,122,58,0.15); }
+.status-card.selected-none     { border-color: var(--border); background: rgba(255,255,255,0.04); }
+.status-dot { font-size: 1.1rem; }
+.status-label { font-size: 0.92rem; font-weight: 600; }
+.status-sublabel { font-size: 0.75rem; color: var(--muted); margin-top: 1px; }
+
+/* ── Severity ── */
+.severity-row { display: flex; gap: 8px; }
+.sev-btn {
+  flex: 1; aspect-ratio: 1; border-radius: 50%; border: 2px solid var(--border);
+  background: var(--input-bg); color: var(--muted); font-size: 0.85rem;
+  font-weight: 700; cursor: pointer; display: flex; align-items: center;
+  justify-content: center; transition: all 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+.sev-btn.selected {
+  border-color: var(--headache-color); background: var(--headache-color); color: #fff;
+}
+.sev-scale { display: flex; justify-content: space-between; margin-top: 4px; }
+.sev-scale span { font-size: 0.62rem; color: var(--muted); }
+
+/* ── Chip grid ── */
+.chip-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  background: var(--tag-bg); border: 1px solid var(--border);
+  color: var(--muted); border-radius: 20px; padding: 7px 14px;
+  font-size: 0.82rem; cursor: pointer;
+  -webkit-tap-highlight-color: transparent; transition: all 0.12s;
+}
+.chip.selected {
+  background: var(--accent); border-color: var(--accent); color: #fff;
+}
+.chip.trigger-chip.selected {
+  background: var(--food-color); border-color: var(--food-color); color: #fff;
+}
+
+/* ── Collapsible block ── */
+.collapsible {
+  overflow: hidden; max-height: 0; opacity: 0;
+  transition: max-height 0.3s ease, opacity 0.25s ease;
+}
+.collapsible.open { max-height: 600px; opacity: 1; }
+
+/* ── BP toggle ── */
+.bp-toggle {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--input-bg); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 14px; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.bp-toggle.on { border-color: var(--vasograin-color); background: rgba(90,106,138,0.15); }
+.bp-label { font-size: 0.88rem; font-weight: 600; }
+.bp-pill {
+  width: 44px; height: 24px; border-radius: 12px; background: var(--border);
+  position: relative; transition: background 0.2s;
+}
+.bp-toggle.on .bp-pill { background: var(--vasograin-color); }
+.bp-pill::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 20px; height: 20px; border-radius: 50%; background: #fff;
+  transition: transform 0.2s;
+}
+.bp-toggle.on .bp-pill::after { transform: translateX(20px); }
+
+/* ── Nudge note ── */
+.nudge-note {
+  font-size: 0.78rem; color: var(--muted); font-style: italic;
+  padding: 8px 12px; background: rgba(90,106,138,0.1);
+  border-radius: 8px; border-left: 2px solid var(--vasograin-color);
+  margin-top: 8px;
+}
+
+/* ── Primary save button ── */
+.save-btn {
+  width: 100%; background: var(--accent); border: none; color: #fff;
+  border-radius: 14px; padding: 16px; font-size: 1rem; font-weight: 700;
+  cursor: pointer; margin-top: 8px;
+  -webkit-tap-highlight-color: transparent; transition: background 0.1s;
+}
+.save-btn:active { background: var(--accent-lit); }
+
+/* ── Date group (history) ── */
+.date-group { margin-bottom: 6px; }
+.date-divider {
+  font-size: 0.7rem; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.1em;
+  padding: 12px 0 6px;
+}
+
+/* ── Filter tabs ── */
+.filter-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+.filter-tab {
+  background: var(--tag-bg); border: 1px solid var(--border);
+  color: var(--muted); border-radius: 20px; padding: 6px 14px;
+  font-size: 0.8rem; font-weight: 600; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.filter-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* ── Detail bottom sheet ── */
+#detail-modal {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  z-index: 200; display: none; align-items: flex-end; justify-content: center;
+}
+#detail-modal.visible { display: flex; }
+.detail-box {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 20px 20px 0 0; padding: 20px 18px 36px;
+  width: 100%; max-width: 520px; max-height: 80vh; overflow-y: auto;
+}
+.detail-header {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;
+}
+.detail-title { font-size: 1rem; font-weight: 700; }
+.detail-close {
+  background: none; border: none; color: var(--muted); font-size: 1.4rem; cursor: pointer;
+}
+.detail-field { margin-bottom: 10px; }
+.detail-field-label { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 2px; }
+.detail-field-value { font-size: 0.92rem; }
+.detail-actions { display: flex; gap: 10px; margin-top: 18px; }
+.detail-edit-btn {
+  flex: 2; background: var(--accent); border: none; color: #fff;
+  border-radius: 12px; padding: 12px; font-size: 0.9rem; font-weight: 700; cursor: pointer;
+}
+.detail-delete-btn {
+  flex: 1; background: none; border: 1px solid var(--danger);
+  color: var(--danger); border-radius: 12px; padding: 12px;
+  font-size: 0.9rem; cursor: pointer;
+}
+
+/* ── Datetime modal ── */
+#dt-modal {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  z-index: 300; display: none; align-items: center; justify-content: center; padding: 24px;
+}
+#dt-modal.visible { display: flex; }
+.dt-box {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 20px; padding: 24px; width: 100%; max-width: 340px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.dt-box h3 { font-size: 1rem; font-weight: 700; }
+.dt-actions { display: flex; gap: 10px; }
+.dt-cancel {
+  flex: 1; background: none; border: 1px solid var(--border);
+  color: var(--muted); border-radius: 10px; padding: 11px;
+  font-size: 0.9rem; cursor: pointer;
+}
+.dt-ok {
+  flex: 2; background: var(--accent); border: none; color: #fff;
+  border-radius: 10px; padding: 11px; font-size: 0.9rem;
+  font-weight: 700; cursor: pointer;
+}
+
+/* ── Insights ── */
+.insight-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 14px; padding: 16px; margin-bottom: 12px;
+}
+.insight-card-title {
+  font-size: 0.68rem; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px;
+}
+.insight-stat-row { display: flex; gap: 10px; margin-bottom: 10px; }
+.insight-stat {
+  flex: 1; background: var(--card2); border-radius: 10px; padding: 10px 12px;
+}
+.insight-stat-val { font-size: 1.6rem; font-weight: 700; }
+.insight-stat-lbl { font-size: 0.68rem; color: var(--muted); }
+.insight-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 7px 0; border-bottom: 1px solid var(--border);
+  font-size: 0.88rem;
+}
+.insight-row:last-child { border-bottom: none; }
+.insight-row-label { color: var(--text); flex: 1; }
+.insight-row-val { color: var(--accent-lit); font-weight: 700; font-size: 0.8rem; }
+.highlight-card {
+  background: rgba(90,106,138,0.15); border: 1px solid var(--vasograin-color);
+  border-radius: 12px; padding: 14px; margin-top: 4px; font-size: 0.88rem; line-height: 1.6;
+}
+
+/* ── Sync badge ── */
+.sync-badge {
+  font-size: 0.68rem; padding: 3px 8px; border-radius: 10px;
+  font-weight: 700; white-space: nowrap; flex-shrink: 0;
+}
+.sync-badge.syncing { color: var(--muted); }
+.sync-badge.ok      { color: var(--food-color); }
+.sync-badge.err     { color: var(--danger); background: rgba(122,74,74,0.2); }
+.sync-badge.offline { color: var(--muted); }
+
+/* ── Settings screen ── */
+.settings-section { margin-bottom: 22px; }
+.settings-label {
+  font-size: 0.68rem; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; display: block;
+}
+.settings-desc {
+  font-size: 0.78rem; color: var(--muted); line-height: 1.5; margin-bottom: 10px;
+}
+.settings-row {
+  display: flex; align-items: center; gap: 10px;
+}
+.settings-input {
+  flex: 1; background: var(--input-bg); border: 1px solid var(--border);
+  border-radius: 10px; color: var(--text); font-size: 0.88rem;
+  font-family: monospace; padding: 11px 12px; color-scheme: dark;
+}
+.settings-input:focus { outline: 2px solid var(--accent); border-color: transparent; }
+.settings-btn {
+  background: var(--accent); border: none; color: #fff;
+  border-radius: 10px; padding: 11px 18px; font-size: 0.88rem;
+  font-weight: 700; cursor: pointer; white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+.settings-btn.secondary {
+  background: var(--card2); border: 1px solid var(--border); color: var(--text);
+}
+.settings-btn.danger {
+  background: none; border: 1px solid var(--danger); color: var(--danger);
+}
+.settings-info {
+  background: var(--card2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 14px; font-size: 0.82rem;
+  color: var(--muted); line-height: 1.6;
+}
+.settings-info strong { color: var(--text); }
+.gist-link {
+  color: var(--accent-lit); text-decoration: none; word-break: break-all;
+}
+.scope-chip {
+  display: inline-block; background: rgba(92,92,200,0.2); border: 1px solid #5c5cc8;
+  color: #9090e0; border-radius: 6px; padding: 1px 8px; font-family: monospace;
+  font-size: 0.8rem;
+}
+
+/* ── Freetext trigger input ── */
+.trigger-add-row { display: flex; gap: 8px; margin-top: 8px; }
+.trigger-add-input {
+  flex: 1; background: var(--input-bg); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: 0.88rem;
+  padding: 8px 12px; font-family: inherit; color-scheme: dark;
+}
+.trigger-add-input:focus { outline: 1px solid var(--accent); }
+.trigger-add-btn {
+  background: var(--tag-bg); border: 1px solid var(--border);
+  color: var(--text); border-radius: 8px; padding: 8px 14px;
+  font-size: 0.88rem; cursor: pointer;
+}
+</style>
+</head>
+<body>
+
+<!-- ══ HOME ══ -->
+<div id="home" class="screen active">
+  <div class="header">
+    <h1>🧠 Symptom Tracker</h1>
+    <span class="sync-badge" id="sync-badge"></span>
+    <button class="hdr-btn" onclick="showSettings()" title="Settings">⚙</button>
+  </div>
+  <div class="scroll-content">
+    <div class="stat-row">
+      <div class="stat-card">
+        <div class="stat-label">Headaches</div>
+        <div class="stat-value" id="stat-headaches">—</div>
+        <div class="stat-sub">this week</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Vasograin</div>
+        <div class="stat-value" id="stat-vasograin">—</div>
+        <div class="stat-sub">this week</div>
+      </div>
+    </div>
+    <div class="section-label">Recent Entries</div>
+    <div id="recent-list"></div>
+    <div class="fab-row">
+      <button class="fab food-fab" onclick="openLogFood()">🍛 Log Food</button>
+      <button class="fab head-fab" onclick="openLogHeadache()">+ Log Headache</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ LOG FOOD ══ -->
+<div id="log-food" class="screen">
+  <div class="header">
+    <button class="back-btn" onclick="goHome()">‹</button>
+    <h1 id="food-screen-title">Log Food</h1>
+  </div>
+  <div class="scroll-content">
+    <div class="form-section">
+      <label class="form-label">Time</label>
+      <button class="time-display" onclick="openDtModal('food')">
+        <span id="food-time-display">Now</span>
+        <span class="time-edit-hint">edit</span>
+      </button>
+    </div>
+    <div class="form-section">
+      <label class="form-label">What did you eat?</label>
+      <textarea class="form-input" id="food-items" placeholder="e.g. dosa, sambar, jaggery tea"></textarea>
+    </div>
+    <div class="form-section">
+      <label class="form-label">Sugar level</label>
+      <div class="toggle-group">
+        <button class="toggle-btn" id="sugar-high"     onclick="setSugar('high')">High</button>
+        <button class="toggle-btn" id="sugar-moderate" onclick="setSugar('moderate')">Moderate</button>
+        <button class="toggle-btn" id="sugar-low"      onclick="setSugar('low')">Low / None</button>
+      </div>
+    </div>
+    <div class="form-section">
+      <label class="form-label">Notes (optional)</label>
+      <textarea class="form-input" id="food-notes" placeholder="Anything else worth noting…"></textarea>
+    </div>
+    <button class="save-btn" onclick="saveFoodEntry()">Save Food Entry</button>
+  </div>
+</div>
+
+<!-- ══ LOG HEADACHE ══ -->
+<div id="log-headache" class="screen">
+  <div class="header">
+    <button class="back-btn" onclick="goHome()">‹</button>
+    <h1 id="headache-screen-title">Log Headache</h1>
+  </div>
+  <div class="scroll-content">
+
+    <div class="form-section">
+      <label class="form-label">Time</label>
+      <button class="time-display" onclick="openDtModal('headache')">
+        <span id="headache-time-display">Now</span>
+        <span class="time-edit-hint">edit</span>
+      </button>
+    </div>
+
+    <div class="form-section">
+      <label class="form-label">What's happening?</label>
+      <div class="status-options">
+        <div class="status-card" id="status-active" onclick="setStatus('active')">
+          <span class="status-dot">🔴</span>
+          <div><div class="status-label">Active headache</div><div class="status-sublabel">Headache is happening right now</div></div>
+        </div>
+        <div class="status-card" id="status-suspected" onclick="setStatus('suspected')">
+          <span class="status-dot">🟡</span>
+          <div><div class="status-label">Feels like one coming</div><div class="status-sublabel">Prodrome — something feels off</div></div>
+        </div>
+        <div class="status-card" id="status-none" onclick="setStatus('none')">
+          <span class="status-dot">⚪</span>
+          <div><div class="status-label">No headache / retrospective</div><div class="status-sublabel">Logging after the fact or just symptoms</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="collapsible" id="severity-block">
+      <div class="form-section">
+        <label class="form-label">Severity</label>
+        <div class="severity-row">
+          <button class="sev-btn" id="sev-1" onclick="setSeverity(1)">1</button>
+          <button class="sev-btn" id="sev-2" onclick="setSeverity(2)">2</button>
+          <button class="sev-btn" id="sev-3" onclick="setSeverity(3)">3</button>
+          <button class="sev-btn" id="sev-4" onclick="setSeverity(4)">4</button>
+          <button class="sev-btn" id="sev-5" onclick="setSeverity(5)">5</button>
+        </div>
+        <div class="sev-scale"><span>Mild whisper</span><span>Can't function</span></div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <label class="form-label">Symptoms (tap all that apply)</label>
+      <div class="chip-grid" id="symptom-chips">
+        <button class="chip" onclick="toggleSymptom(this,'throbbing')">Throbbing</button>
+        <button class="chip" onclick="toggleSymptom(this,'nauseous')">Nauseous</button>
+        <button class="chip" onclick="toggleSymptom(this,'light_sensitive')">Light sensitive</button>
+        <button class="chip" onclick="toggleSymptom(this,'neck_tension')">Neck tension</button>
+        <button class="chip" onclick="toggleSymptom(this,'jaw_ache')">Jaw ache</button>
+        <button class="chip" onclick="toggleSymptom(this,'aura')">Aura</button>
+        <button class="chip" onclick="toggleSymptom(this,'dizzy')">Dizzy</button>
+        <button class="chip" onclick="toggleSymptom(this,'fatigue')">Fatigue</button>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <label class="form-label">Blood pressure</label>
+      <div class="bp-toggle" id="bp-toggle" onclick="toggleBP()">
+        <div>
+          <div class="bp-label">BP felt high today</div>
+        </div>
+        <div class="bp-pill"></div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <label class="form-label">Vasograin</label>
+      <div class="toggle-group">
+        <button class="toggle-btn" id="vaso-yes" onclick="setVasograin(true)">✓ Taken</button>
+        <button class="toggle-btn" id="vaso-no"  onclick="setVasograin(false)">Not taken</button>
+      </div>
+      <div class="nudge-note">Taking it early (before the headache peaks) tends to work better.</div>
+    </div>
+
+    <div class="collapsible" id="vaso-taken-block">
+      <div class="form-section">
+        <label class="form-label">When did you take it?</label>
+        <div class="toggle-group">
+          <button class="toggle-btn" id="timing-before" onclick="setTiming('before')">Before headache</button>
+          <button class="toggle-btn" id="timing-after"  onclick="setTiming('after')">After headache started</button>
+        </div>
+      </div>
+      <div class="form-section">
+        <label class="form-label">Did it work?</label>
+        <div class="toggle-group">
+          <button class="toggle-btn" id="worked-yes"       onclick="setWorked('yes')">Yes</button>
+          <button class="toggle-btn" id="worked-partially" onclick="setWorked('partially')">Partially</button>
+          <button class="toggle-btn" id="worked-no"        onclick="setWorked('no')">No</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="collapsible" id="vaso-nottaken-block">
+      <div class="form-section">
+        <label class="form-label">Why not?</label>
+        <div class="chip-grid">
+          <button class="chip" onclick="toggleWhyNot(this,'forgot')">Forgot</button>
+          <button class="chip" onclick="toggleWhyNot(this,'not_needed')">Didn't think it was needed</button>
+          <button class="chip" onclick="toggleWhyNot(this,'worried_overuse')">Worried about overuse</button>
+          <button class="chip" onclick="toggleWhyNot(this,'other')">Other</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <label class="form-label">Possible triggers</label>
+      <div class="chip-grid" id="trigger-chips"></div>
+      <div class="trigger-add-row">
+        <input class="trigger-add-input" id="trigger-add-input" placeholder="Add trigger manually…">
+        <button class="trigger-add-btn" onclick="addManualTrigger()">Add</button>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <label class="form-label">Notes (optional)</label>
+      <textarea class="form-input" id="headache-notes" placeholder="Anything else…"></textarea>
+    </div>
+
+    <button class="save-btn" onclick="saveHeadacheEntry()">Save Entry</button>
+  </div>
+</div>
+
+<!-- ══ HISTORY ══ -->
+<div id="history" class="screen">
+  <div class="header"><h1>History</h1></div>
+  <div class="scroll-content">
+    <div class="filter-tabs">
+      <button class="filter-tab active" id="filter-all"      onclick="setFilter('all')">All</button>
+      <button class="filter-tab"        id="filter-headaches" onclick="setFilter('headaches')">Headaches</button>
+      <button class="filter-tab"        id="filter-food"     onclick="setFilter('food')">Food</button>
+    </div>
+    <div id="history-list"></div>
+  </div>
+</div>
+
+<!-- ══ INSIGHTS ══ -->
+<div id="insights" class="screen">
+  <div class="header"><h1>Insights</h1></div>
+  <div class="scroll-content" id="insights-content"></div>
+</div>
+
+<!-- ══ SETTINGS ══ -->
+<div id="settings" class="screen">
+  <div class="header">
+    <button class="back-btn" onclick="goHome()">‹</button>
+    <h1>Settings & Sync</h1>
+  </div>
+  <div class="scroll-content">
+
+    <div class="settings-section">
+      <label class="settings-label">GitHub Gist Sync</label>
+      <p class="settings-desc">
+        Enter a GitHub Personal Access Token to sync data across devices.
+        Only needs the <span class="scope-chip">gist</span> scope — no other permissions required.
+        Your data is stored in a <strong>secret</strong> (private) Gist.
+      </p>
+      <div class="settings-row">
+        <input class="settings-input" type="password" id="pat-input" placeholder="ghp_xxxxxxxxxxxx" autocomplete="off" spellcheck="false">
+        <button class="settings-btn" onclick="savePAT()">Save</button>
+      </div>
+    </div>
+
+    <div class="settings-section" id="sync-status-section" style="display:none">
+      <label class="settings-label">Sync Status</label>
+      <div class="settings-info" id="sync-status-info"></div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="settings-btn secondary" style="flex:1" onclick="manualSync()">↻ Sync Now</button>
+        <button class="settings-btn danger" onclick="disconnectGist()">Disconnect</button>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <label class="settings-label">Trigger Window</label>
+      <p class="settings-desc">How far back to look for food entries when suggesting triggers.</p>
+      <div class="toggle-group">
+        <button class="toggle-btn" id="tw-3"  onclick="setTriggerWindow(3)">3 hours</button>
+        <button class="toggle-btn" id="tw-6"  onclick="setTriggerWindow(6)">6 hours</button>
+        <button class="toggle-btn" id="tw-12" onclick="setTriggerWindow(12)">12 hours</button>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <label class="settings-label">How to get a token</label>
+      <div class="settings-info">
+        1. Go to <strong>github.com → Settings → Developer settings → Personal access tokens → Tokens (classic)</strong><br>
+        2. Click <strong>Generate new token (classic)</strong><br>
+        3. Set a name (e.g. "symptom-tracker"), tick only <span class="scope-chip">gist</span>, click Generate<br>
+        4. Copy the token starting with <code>ghp_</code> and paste it above
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ BOTTOM NAV ══ -->
+<nav class="bottom-nav">
+  <button class="nav-tab active" id="tab-home"     onclick="switchTab('home')">
+    <span class="nav-icon">🏠</span>Home
+  </button>
+  <button class="nav-tab" id="tab-history"  onclick="switchTab('history')">
+    <span class="nav-icon">📋</span>History
+  </button>
+  <button class="nav-tab" id="tab-insights" onclick="switchTab('insights')">
+    <span class="nav-icon">📊</span>Insights
+  </button>
+</nav>
+
+<!-- ══ ENTRY DETAIL MODAL ══ -->
+<div id="detail-modal">
+  <div class="detail-box">
+    <div class="detail-header">
+      <span class="detail-title" id="detail-title"></span>
+      <button class="detail-close" onclick="closeDetail()">✕</button>
+    </div>
+    <div id="detail-body"></div>
+    <div class="detail-actions">
+      <button class="detail-edit-btn"   id="detail-edit-btn">Edit</button>
+      <button class="detail-delete-btn" id="detail-delete-btn">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ DATETIME MODAL ══ -->
+<div id="dt-modal">
+  <div class="dt-box">
+    <h3>Set time</h3>
+    <input type="datetime-local" class="form-input" id="dt-input" color-scheme="dark">
+    <div class="dt-actions">
+      <button class="dt-cancel" onclick="closeDtModal()">Cancel</button>
+      <button class="dt-ok"     onclick="confirmDt()">Set</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+
+let currentTab    = 'home';
+let currentFilter = 'all';
+
+let foodForm = {};
+let headacheForm = {};
+let dtTarget  = null;   // 'food' | 'headache'
+
+// ─── STORAGE HELPERS ──────────────────────────────────────────────────────────
+
+function todayStr() { return new Date().toISOString().slice(0, 10); }
+
+function saveEntry(type, data) {
+  const date = data.time.slice(0, 10);
+  const ts   = new Date(data.time).getTime();
+  const key  = `ht_${type}_${date}_${ts}`;
+  data.id = key;
+  localStorage.setItem(key, JSON.stringify(data));
+  return key;
+}
+
+function getAllEntries() {
+  const entries = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key || (!key.startsWith('ht_food_') && !key.startsWith('ht_headache_'))) continue;
+    try {
+      const obj = JSON.parse(localStorage.getItem(key));
+      obj._key  = key;
+      obj._type = key.startsWith('ht_food_') ? 'food' : 'headache';
+      entries.push(obj);
+    } catch {}
+  }
+  return entries.sort((a, b) => new Date(b.time) - new Date(a.time));
+}
+
+function deleteEntry(key) { localStorage.removeItem(key); }
+
+function getPrefs() {
+  try { return JSON.parse(localStorage.getItem('ht_prefs')) || {}; } catch { return {}; }
+}
+
+// ─── NAVIGATION ───────────────────────────────────────────────────────────────
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  ['home','history','insights'].forEach(t => {
+    document.getElementById(`tab-${t}`).classList.toggle('active', t === tab);
+  });
+  if (tab === 'home')     { showScreen('home');     renderHome(); }
+  if (tab === 'history')  { showScreen('history');  renderHistory(); }
+  if (tab === 'insights') { showScreen('insights'); renderInsights(); }
+}
+
+function goHome() {
+  switchTab('home');
+}
+
+// ─── HOME ─────────────────────────────────────────────────────────────────────
+
+function renderHome() {
+  const all      = getAllEntries();
+  const weekMs   = 7 * 86400000;
+  const weekCut  = Date.now() - weekMs;
+  const weekH    = all.filter(e => e._type === 'headache' && new Date(e.time).getTime() >= weekCut);
+  const weekV    = weekH.filter(e => e.vasograinTaken);
+
+  document.getElementById('stat-headaches').textContent = weekH.length;
+  document.getElementById('stat-vasograin').textContent = weekV.length;
+
+  const list = document.getElementById('recent-list');
+  const recent = all.slice(0, 5);
+  if (!recent.length) {
+    list.innerHTML = '<div class="empty-msg">No entries yet. Log your first food or headache above.</div>';
+    return;
+  }
+  list.innerHTML = recent.map(e => entryRowHTML(e, true)).join('');
+}
+
+// ─── ENTRY ROW HTML ───────────────────────────────────────────────────────────
+
+function entryRowHTML(e, clickable) {
+  const icon = e._type === 'food' ? '🍛' :
+    e.status === 'active'    ? '🔴' :
+    e.status === 'suspected' ? '🟡' : '⚪';
+
+  const time = fmtTime(e.time);
+
+  let summary = '', detail = '';
+  if (e._type === 'food') {
+    summary = e.items || 'Food logged';
+    if (e.sugarLevel) {
+      detail = `<span class="sugar-${e.sugarLevel}">${e.sugarLevel.toUpperCase()} SUGAR</span>`;
+    }
+  } else {
+    const sMap = { active: 'Active headache', suspected: 'Feels like coming', none: 'Retrospective' };
+    summary = sMap[e.status] || 'Headache';
+    if (e.severity) summary += ` — severity ${e.severity}`;
+    const bits = [];
+    if (e.vasograinTaken) bits.push('Vasograin taken');
+    else if (e.vasograinTaken === false) bits.push('No Vasograin');
+    if (e.bpHigh) bits.push('BP high');
+    detail = bits.join(' · ');
+  }
+
+  const onclick = clickable ? `onclick="showDetail('${e._key}')"` : '';
+  return `
+    <div class="entry-row ${e._type}" ${onclick}>
+      <span class="entry-icon">${icon}</span>
+      <div class="entry-body">
+        <div class="entry-time">${time}</div>
+        <div class="entry-summary">${summary}</div>
+        ${detail ? `<div class="entry-detail">${detail}</div>` : ''}
+      </div>
+    </div>`;
+}
+
+// ─── FOOD FORM ────────────────────────────────────────────────────────────────
+
+function openLogFood(editKey) {
+  if (editKey) {
+    const raw = localStorage.getItem(editKey);
+    foodForm = raw ? { ...JSON.parse(raw), _editKey: editKey } : resetFoodForm();
+  } else {
+    foodForm = resetFoodForm();
+  }
+  document.getElementById('food-screen-title').textContent = editKey ? 'Edit Food' : 'Log Food';
+  document.getElementById('food-items').value = foodForm.items || '';
+  document.getElementById('food-notes').value = foodForm.notes || '';
+  document.getElementById('food-time-display').textContent = fmtTimeShort(foodForm.time);
+  setSugar(foodForm.sugarLevel, true);
+  showScreen('log-food');
+}
+
+function resetFoodForm() {
+  return { time: new Date().toISOString(), items: '', sugarLevel: null, notes: '' };
+}
+
+function setSugar(level, silent) {
+  if (!silent) foodForm.sugarLevel = (foodForm.sugarLevel === level) ? null : level;
+  ['high','moderate','low'].forEach(l => {
+    document.getElementById(`sugar-${l}`).classList.toggle('food-selected', foodForm.sugarLevel === l);
+  });
+}
+
+function saveFoodEntry() {
+  const data = {
+    time:       foodForm.time,
+    items:      document.getElementById('food-items').value.trim(),
+    sugarLevel: foodForm.sugarLevel,
+    notes:      document.getElementById('food-notes').value.trim(),
+  };
+  if (foodForm._editKey) deleteEntry(foodForm._editKey);
+  saveEntry('food', data);
+  goHome();
+  syncWithGist();
+}
+
+// ─── HEADACHE FORM ────────────────────────────────────────────────────────────
+
+function openLogHeadache(editKey) {
+  if (editKey) {
+    const raw = localStorage.getItem(editKey);
+    headacheForm = raw ? { ...JSON.parse(raw), _editKey: editKey } : resetHeadacheForm();
+  } else {
+    headacheForm = resetHeadacheForm();
+  }
+  document.getElementById('headache-screen-title').textContent = editKey ? 'Edit Entry' : 'Log Headache';
+  document.getElementById('headache-notes').value = headacheForm.notes || '';
+  document.getElementById('headache-time-display').textContent = fmtTimeShort(headacheForm.time);
+
+  // Reset all UI
+  clearStatusCards();
+  if (headacheForm.status) setStatus(headacheForm.status, true);
+
+  // Severity
+  for (let i = 1; i <= 5; i++) {
+    document.getElementById(`sev-${i}`).classList.toggle('selected', headacheForm.severity === i);
+  }
+
+  // Symptoms
+  document.querySelectorAll('#symptom-chips .chip').forEach(c => {
+    c.classList.toggle('selected', (headacheForm.symptoms || []).includes(c.getAttribute('onclick').match(/'([^']+)'\)/)[1]));
+  });
+
+  // BP
+  const bpEl = document.getElementById('bp-toggle');
+  bpEl.classList.toggle('on', !!headacheForm.bpHigh);
+
+  // Vasograin
+  document.getElementById('vaso-yes').classList.toggle('selected', headacheForm.vasograinTaken === true);
+  document.getElementById('vaso-no').classList.toggle('selected', headacheForm.vasograinTaken === false);
+  setCollapsible('vaso-taken-block',    headacheForm.vasograinTaken === true);
+  setCollapsible('vaso-nottaken-block', headacheForm.vasograinTaken === false);
+
+  // Timing
+  ['before','after'].forEach(t => {
+    document.getElementById(`timing-${t}`).classList.toggle('selected', headacheForm.vasograinTiming === t);
+  });
+  // Worked
+  ['yes','partially','no'].forEach(w => {
+    document.getElementById(`worked-${w}`).classList.toggle('selected', headacheForm.vasograinWorked === w);
+  });
+
+  // Why not — single selection via chip reset
+  document.querySelectorAll('#vaso-nottaken-block .chip').forEach(c => {
+    const val = c.getAttribute('onclick').match(/'([^']+)'\)/)[1];
+    c.classList.toggle('selected', headacheForm.whyNoVasograin === val);
+  });
+
+  // Triggers
+  populateTriggerChips();
+
+  showScreen('log-headache');
+}
+
+function resetHeadacheForm() {
+  return {
+    time: new Date().toISOString(),
+    status: null, severity: null,
+    symptoms: [], bpHigh: false,
+    vasograinTaken: null, vasograinTiming: null, vasograinWorked: null,
+    whyNoVasograin: null, triggers: [], triggerFoodIds: [], notes: ''
+  };
+}
+
+function clearStatusCards() {
+  ['active','suspected','none'].forEach(s => {
+    document.getElementById(`status-${s}`).className = 'status-card';
+  });
+  setCollapsible('severity-block', false);
+}
+
+function setStatus(status, silent) {
+  if (!silent) headacheForm.status = status;
+  clearStatusCards();
+  const cls = status === 'active' ? 'selected-active' : status === 'suspected' ? 'selected-suspected' : 'selected-none';
+  document.getElementById(`status-${status}`).classList.add(cls);
+  setCollapsible('severity-block', status !== 'suspected');
+}
+
+function setSeverity(n) {
+  headacheForm.severity = (headacheForm.severity === n) ? null : n;
+  for (let i = 1; i <= 5; i++) {
+    document.getElementById(`sev-${i}`).classList.toggle('selected', headacheForm.severity === i);
+  }
+}
+
+function toggleSymptom(el, key) {
+  el.classList.toggle('selected');
+  const idx = headacheForm.symptoms.indexOf(key);
+  if (idx === -1) headacheForm.symptoms.push(key);
+  else headacheForm.symptoms.splice(idx, 1);
+}
+
+function toggleBP() {
+  headacheForm.bpHigh = !headacheForm.bpHigh;
+  document.getElementById('bp-toggle').classList.toggle('on', headacheForm.bpHigh);
+}
+
+function setVasograin(taken) {
+  headacheForm.vasograinTaken = taken;
+  document.getElementById('vaso-yes').classList.toggle('selected', taken === true);
+  document.getElementById('vaso-no').classList.toggle('selected', taken === false);
+  setCollapsible('vaso-taken-block',    taken === true);
+  setCollapsible('vaso-nottaken-block', taken === false);
+  if (!taken) { headacheForm.vasograinTiming = null; headacheForm.vasograinWorked = null; }
+  else        { headacheForm.whyNoVasograin = null; }
+}
+
+function setTiming(t) {
+  headacheForm.vasograinTiming = (headacheForm.vasograinTiming === t) ? null : t;
+  ['before','after'].forEach(v => document.getElementById(`timing-${v}`).classList.toggle('selected', headacheForm.vasograinTiming === v));
+}
+
+function setWorked(w) {
+  headacheForm.vasograinWorked = (headacheForm.vasograinWorked === w) ? null : w;
+  ['yes','partially','no'].forEach(v => document.getElementById(`worked-${v}`).classList.toggle('selected', headacheForm.vasograinWorked === v));
+}
+
+function toggleWhyNot(el, val) {
+  const already = headacheForm.whyNoVasograin === val;
+  document.querySelectorAll('#vaso-nottaken-block .chip').forEach(c => c.classList.remove('selected'));
+  headacheForm.whyNoVasograin = already ? null : val;
+  if (!already) el.classList.add('selected');
+}
+
+function setCollapsible(id, open) {
+  document.getElementById(id).classList.toggle('open', open);
+}
+
+function populateTriggerChips() {
+  const prefs = getPrefs();
+  const windowH = prefs.triggerWindowHours || 6;
+  const cutoff  = Date.now() - windowH * 3600000;
+  const recentFood = getAllEntries().filter(e => e._type === 'food' && new Date(e.time).getTime() >= cutoff);
+
+  const seen = new Set();
+  const chips = [];
+  recentFood.forEach(entry => {
+    if (!entry.items) return;
+    entry.items.split(',').map(s => s.trim()).filter(Boolean).forEach(item => {
+      const key = item.toLowerCase();
+      if (!seen.has(key)) { seen.add(key); chips.push({ label: item, foodId: entry._key }); }
+    });
+  });
+
+  const container = document.getElementById('trigger-chips');
+  if (!chips.length) {
+    container.innerHTML = '<span style="font-size:0.8rem;color:var(--muted)">No food logged in the last ' + windowH + ' hours</span>';
+    return;
+  }
+  container.innerHTML = chips.map(chip => {
+    const sel = (headacheForm.triggers || []).includes(chip.label);
+    return `<button class="chip trigger-chip${sel ? ' selected' : ''}"
+      data-label="${chip.label}" data-food-id="${chip.foodId}"
+      onclick="toggleTriggerChip(this,'${chip.label.replace(/'/g,"\\'")}','${chip.foodId}')">${chip.label}</button>`;
+  }).join('');
+}
+
+function toggleTriggerChip(el, label, foodId) {
+  el.classList.toggle('selected');
+  const idx = headacheForm.triggers.indexOf(label);
+  if (idx === -1) { headacheForm.triggers.push(label); headacheForm.triggerFoodIds.push(foodId); }
+  else { headacheForm.triggers.splice(idx, 1); headacheForm.triggerFoodIds.splice(idx, 1); }
+}
+
+function addManualTrigger() {
+  const input = document.getElementById('trigger-add-input');
+  const val = input.value.trim();
+  if (!val) return;
+  if (!headacheForm.triggers.includes(val)) headacheForm.triggers.push(val);
+  input.value = '';
+  // add a selected chip
+  const container = document.getElementById('trigger-chips');
+  const chip = document.createElement('button');
+  chip.className = 'chip trigger-chip selected';
+  chip.textContent = val;
+  chip.onclick = () => {
+    chip.classList.toggle('selected');
+    const i = headacheForm.triggers.indexOf(val);
+    if (i !== -1) headacheForm.triggers.splice(i, 1);
+  };
+  container.appendChild(chip);
+}
+
+function saveHeadacheEntry() {
+  const data = {
+    time:            headacheForm.time,
+    status:          headacheForm.status,
+    severity:        headacheForm.severity || null,
+    symptoms:        headacheForm.symptoms || [],
+    bpHigh:          !!headacheForm.bpHigh,
+    vasograinTaken:  headacheForm.vasograinTaken,
+    vasograinTiming: headacheForm.vasograinTiming || null,
+    vasograinWorked: headacheForm.vasograinWorked || null,
+    whyNoVasograin:  headacheForm.whyNoVasograin || null,
+    triggers:        headacheForm.triggers || [],
+    triggerFoodIds:  headacheForm.triggerFoodIds || [],
+    notes:           document.getElementById('headache-notes').value.trim(),
+  };
+  if (headacheForm._editKey) deleteEntry(headacheForm._editKey);
+  saveEntry('headache', data);
+  goHome();
+  syncWithGist();
+}
+
+// ─── HISTORY ──────────────────────────────────────────────────────────────────
+
+function setFilter(f) {
+  currentFilter = f;
+  ['all','headaches','food'].forEach(x => {
+    document.getElementById(`filter-${x}`).classList.toggle('active', x === f);
+  });
+  renderHistory();
+}
+
+function renderHistory() {
+  let entries = getAllEntries();
+  if (currentFilter === 'headaches') entries = entries.filter(e => e._type === 'headache');
+  if (currentFilter === 'food')      entries = entries.filter(e => e._type === 'food');
+
+  const groups = {};
+  entries.forEach(e => {
+    const date = e.time.slice(0, 10);
+    if (!groups[date]) groups[date] = [];
+    groups[date].push(e);
+  });
+
+  const container = document.getElementById('history-list');
+  if (!entries.length) { container.innerHTML = '<div class="empty-msg">No entries yet.</div>'; return; }
+
+  container.innerHTML = Object.entries(groups)
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .map(([date, dayEntries]) => `
+      <div class="date-group">
+        <div class="date-divider">${fmtDateLabel(date)}</div>
+        ${dayEntries.map(e => entryRowHTML(e, true)).join('')}
+      </div>`).join('');
+}
+
+// ─── DETAIL MODAL ─────────────────────────────────────────────────────────────
+
+function showDetail(key) {
+  const raw = localStorage.getItem(key);
+  if (!raw) return;
+  const e = JSON.parse(raw);
+  e._key  = key;
+  e._type = key.startsWith('ht_food_') ? 'food' : 'headache';
+
+  document.getElementById('detail-title').textContent = e._type === 'food' ? '🍛 Food Entry' : '🧠 Headache Entry';
+
+  let html = `<div class="detail-field"><div class="detail-field-label">Time</div><div class="detail-field-value">${fmtDateTime(e.time)}</div></div>`;
+
+  if (e._type === 'food') {
+    if (e.items)      html += df('Food', e.items);
+    if (e.sugarLevel) html += df('Sugar level', e.sugarLevel);
+    if (e.notes)      html += df('Notes', e.notes);
+  } else {
+    const sMap = { active: 'Active headache', suspected: 'Feels like coming', none: 'Retrospective' };
+    if (e.status)   html += df('Status', sMap[e.status] || e.status);
+    if (e.severity) html += df('Severity', `${e.severity} / 5`);
+    if (e.symptoms?.length) html += df('Symptoms', e.symptoms.map(s => s.replace(/_/g,' ')).join(', '));
+    if (e.bpHigh)   html += df('Blood pressure', 'Felt high today');
+    if (e.vasograinTaken != null) {
+      html += df('Vasograin', e.vasograinTaken ? 'Taken' : 'Not taken');
+      if (e.vasograinTaken) {
+        if (e.vasograinTiming) html += df('Taken', e.vasograinTiming + ' headache');
+        if (e.vasograinWorked) html += df('Effectiveness', e.vasograinWorked);
+      } else if (e.whyNoVasograin) {
+        html += df('Why not taken', e.whyNoVasograin.replace(/_/g,' '));
+      }
+    }
+    if (e.triggers?.length) html += df('Triggers', e.triggers.join(', '));
+    if (e.notes) html += df('Notes', e.notes);
+  }
+
+  document.getElementById('detail-body').innerHTML = html;
+
+  document.getElementById('detail-edit-btn').onclick = () => {
+    closeDetail();
+    if (e._type === 'food') openLogFood(key);
+    else openLogHeadache(key);
+  };
+  document.getElementById('detail-delete-btn').onclick = () => {
+    if (confirm('Delete this entry?')) {
+      deleteEntry(key);
+      closeDetail();
+      renderHistory();
+      renderHome();
+      syncWithGist();
+    }
+  };
+
+  document.getElementById('detail-modal').classList.add('visible');
+}
+
+function df(label, value) {
+  return `<div class="detail-field"><div class="detail-field-label">${label}</div><div class="detail-field-value">${value}</div></div>`;
+}
+
+function closeDetail() { document.getElementById('detail-modal').classList.remove('visible'); }
+
+// ─── DATETIME MODAL ───────────────────────────────────────────────────────────
+
+function openDtModal(target) {
+  dtTarget = target;
+  const current = target === 'food' ? foodForm.time : headacheForm.time;
+  // datetime-local wants YYYY-MM-DDTHH:MM
+  const local = toLocalDTString(new Date(current));
+  document.getElementById('dt-input').value = local;
+  document.getElementById('dt-modal').classList.add('visible');
+}
+
+function closeDtModal() {
+  document.getElementById('dt-modal').classList.remove('visible');
+  dtTarget = null;
+}
+
+function confirmDt() {
+  const val = document.getElementById('dt-input').value;
+  if (!val) { closeDtModal(); return; }
+  const iso = new Date(val).toISOString();
+  if (dtTarget === 'food') {
+    foodForm.time = iso;
+    document.getElementById('food-time-display').textContent = fmtTimeShort(iso);
+  } else {
+    headacheForm.time = iso;
+    document.getElementById('headache-time-display').textContent = fmtTimeShort(iso);
+  }
+  closeDtModal();
+}
+
+// ─── INSIGHTS ─────────────────────────────────────────────────────────────────
+
+function renderInsights() {
+  const all       = getAllEntries();
+  const headaches = all.filter(e => e._type === 'headache');
+  const now       = Date.now();
+  const weekMs    = 7 * 86400000;
+  const monthMs   = 30 * 86400000;
+
+  const vasoWeek  = headaches.filter(e => e.vasograinTaken && (now - new Date(e.time).getTime()) < weekMs).length;
+  const vasoMonth = headaches.filter(e => e.vasograinTaken && (now - new Date(e.time).getTime()) < monthMs).length;
+
+  const last4wH = headaches.filter(e => (now - new Date(e.time).getTime()) < 4 * weekMs);
+  const avgPerWeek = (last4wH.length / 4).toFixed(1);
+  const streak = computeStreak(headaches);
+
+  const triggers2h  = computeTriggerFreq(headaches, all, 2);
+  const triggers4h  = computeTriggerFreq(headaches, all, 4);
+
+  const taken = headaches.filter(e => e.vasograinTaken);
+  const workedFull    = taken.filter(e => e.vasograinWorked === 'yes').length;
+  const workedPartial = taken.filter(e => e.vasograinWorked === 'partially').length;
+  const workedNo      = taken.filter(e => e.vasograinWorked === 'no').length;
+  const beforeCount   = taken.filter(e => e.vasograinTiming === 'before').length;
+  const afterCount    = taken.filter(e => e.vasograinTiming === 'after').length;
+  const beforeWorked  = taken.filter(e => e.vasograinTiming === 'before' && e.vasograinWorked === 'yes').length;
+  const afterWorked   = taken.filter(e => e.vasograinTiming === 'after'  && e.vasograinWorked === 'yes').length;
+
+  const pct = (n, d) => d ? `${Math.round(100 * n / d)}%` : '—';
+
+  let html = '';
+
+  // Vasograin
+  html += `<div class="insight-card">
+    <div class="insight-card-title">Vasograin Usage</div>
+    <div class="insight-stat-row">
+      <div class="insight-stat"><div class="insight-stat-val">${vasoWeek}</div><div class="insight-stat-lbl">This week</div></div>
+      <div class="insight-stat"><div class="insight-stat-val">${vasoMonth}</div><div class="insight-stat-lbl">This month</div></div>
+    </div>
+  </div>`;
+
+  // Headaches
+  html += `<div class="insight-card">
+    <div class="insight-card-title">Headaches</div>
+    <div class="insight-row"><span class="insight-row-label">Avg per week (last 4 weeks)</span><span class="insight-row-val">${avgPerWeek}</span></div>
+    <div class="insight-row"><span class="insight-row-label">Headache-free streak</span><span class="insight-row-val">${streak} day${streak !== 1 ? 's' : ''}</span></div>
+    <div class="insight-row"><span class="insight-row-label">Total logged</span><span class="insight-row-val">${headaches.length}</span></div>
+  </div>`;
+
+  // Triggers
+  const allTriggerKeys = new Set([...triggers2h.map(t => t.name), ...triggers4h.map(t => t.name)]);
+  if (allTriggerKeys.size) {
+    html += `<div class="insight-card">
+      <div class="insight-card-title">Possible Food Triggers</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:6px;font-size:0.65rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:0.07em">
+        <span>Food</span><span style="display:grid;grid-template-columns:1fr 1fr;gap:4px"><span>≤2h</span><span>≤4h</span></span>
+      </div>`;
+    const t2map = Object.fromEntries(triggers2h.map(t => [t.name, t.count]));
+    const t4map = Object.fromEntries(triggers4h.map(t => [t.name, t.count]));
+    [...allTriggerKeys].slice(0, 10).forEach(name => {
+      html += `<div class="insight-row">
+        <span class="insight-row-label">${name}</span>
+        <span style="display:grid;grid-template-columns:1fr 1fr;gap:4px;text-align:right">
+          <span class="insight-row-val">${t2map[name] || '—'}</span>
+          <span class="insight-row-val">${t4map[name] || '—'}</span>
+        </span>
+      </div>`;
+    });
+    html += '</div>';
+  }
+
+  // Vasograin effectiveness
+  if (taken.length) {
+    html += `<div class="insight-card">
+      <div class="insight-card-title">Vasograin Effectiveness</div>
+      <div class="insight-row"><span class="insight-row-label">Worked fully</span><span class="insight-row-val">${workedFull}/${taken.length} (${pct(workedFull, taken.length)})</span></div>
+      <div class="insight-row"><span class="insight-row-label">Worked partially</span><span class="insight-row-val">${workedPartial}/${taken.length}</span></div>
+      <div class="insight-row"><span class="insight-row-label">Didn't work</span><span class="insight-row-val">${workedNo}/${taken.length}</span></div>
+      <div class="insight-row"><span class="insight-row-label">Taken before headache</span><span class="insight-row-val">${beforeCount} times</span></div>
+      <div class="insight-row"><span class="insight-row-label">Taken after headache</span><span class="insight-row-val">${afterCount} times</span></div>`;
+    if (beforeCount || afterCount) {
+      html += `<div class="highlight-card">
+        ${beforeCount ? `Taken <strong>before</strong>: worked fully ${beforeCount ? pct(beforeWorked, beforeCount) : '—'} of the time (${beforeWorked}/${beforeCount}).<br>` : ''}
+        ${afterCount  ? `Taken <strong>after</strong>: worked fully ${pct(afterWorked, afterCount)} of the time (${afterWorked}/${afterCount}).` : ''}
+      </div>`;
+    }
+    html += '</div>';
+  }
+
+  if (!headaches.length && !all.length) {
+    html = '<div class="empty-msg">Log a few entries to see patterns here.</div>';
+  }
+
+  document.getElementById('insights-content').innerHTML = html;
+}
+
+function computeStreak(headaches) {
+  const headacheDates = new Set(headaches.map(e => e.time.slice(0, 10)));
+  let streak = 0;
+  const d = new Date();
+  for (let i = 0; i < 365; i++) {
+    const ds = d.toISOString().slice(0, 10);
+    if (headacheDates.has(ds)) break;
+    streak++;
+    d.setDate(d.getDate() - 1);
+  }
+  return streak;
+}
+
+function computeTriggerFreq(headaches, allEntries, hoursBack) {
+  const freq = {};
+  const windowMs = hoursBack * 3600000;
+  headaches.forEach(h => {
+    const hTime = new Date(h.time).getTime();
+    allEntries
+      .filter(e => e._type === 'food' && new Date(e.time).getTime() <= hTime && new Date(e.time).getTime() >= hTime - windowMs)
+      .forEach(food => {
+        if (!food.items) return;
+        food.items.split(',').map(s => s.trim().toLowerCase()).filter(Boolean).forEach(item => {
+          freq[item] = (freq[item] || 0) + 1;
+        });
+      });
+  });
+  return Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([name, count]) => ({ name, count }));
+}
+
+// ─── FORMAT HELPERS ───────────────────────────────────────────────────────────
+
+function fmtTime(iso) {
+  const d = new Date(iso);
+  const today = todayStr();
+  const ds    = iso.slice(0, 10);
+  const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (ds === today) return `Today ${timeStr}`;
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  if (ds === yesterday) return `Yesterday ${timeStr}`;
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + timeStr;
+}
+
+function fmtTimeShort(iso) {
+  const d = new Date(iso);
+  const ds = iso.slice(0, 10);
+  const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (ds === todayStr()) return `Today, ${timeStr}`;
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + `, ${timeStr}`;
+}
+
+function fmtDateTime(iso) {
+  return new Date(iso).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function fmtDateLabel(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  const today = todayStr();
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  if (dateStr === today) return 'Today';
+  if (dateStr === yesterday) return 'Yesterday';
+  return d.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
+}
+
+function toLocalDTString(d) {
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// ─── SETTINGS ─────────────────────────────────────────────────────────────────
+
+function showSettings() {
+  const prefs = getPrefs();
+  document.getElementById('pat-input').value = prefs.githubToken ? '••••••••••••••••' : '';
+  updateSyncStatusUI();
+  const tw = prefs.triggerWindowHours || 6;
+  [3, 6, 12].forEach(h => document.getElementById(`tw-${h}`).classList.toggle('selected', tw === h));
+  showScreen('settings');
+}
+
+function savePAT() {
+  const val = document.getElementById('pat-input').value.trim();
+  if (!val || val.startsWith('•')) return;
+  const prefs = getPrefs();
+  prefs.githubToken = val;
+  delete prefs.gistId;    // new token → create fresh gist
+  delete prefs.lastSync;
+  localStorage.setItem('ht_prefs', JSON.stringify(prefs));
+  updateSyncStatusUI();
+  syncWithGist();
+}
+
+function disconnectGist() {
+  if (!confirm('Disconnect Gist sync? Local data stays intact.')) return;
+  const prefs = getPrefs();
+  delete prefs.githubToken;
+  delete prefs.gistId;
+  delete prefs.lastSync;
+  localStorage.setItem('ht_prefs', JSON.stringify(prefs));
+  updateSyncStatusUI();
+  setSyncBadge('');
+}
+
+function setTriggerWindow(h) {
+  const prefs = getPrefs();
+  prefs.triggerWindowHours = h;
+  localStorage.setItem('ht_prefs', JSON.stringify(prefs));
+  [3, 6, 12].forEach(n => document.getElementById(`tw-${n}`).classList.toggle('selected', n === h));
+}
+
+function manualSync() { syncWithGist(true); }
+
+function updateSyncStatusUI() {
+  const prefs = getPrefs();
+  const section = document.getElementById('sync-status-section');
+  const info    = document.getElementById('sync-status-info');
+  if (!prefs.githubToken) { section.style.display = 'none'; return; }
+  section.style.display = '';
+  const gistUrl = prefs.gistId ? `https://gist.github.com/${prefs.gistId}` : null;
+  const lastSync = prefs.lastSync ? new Date(prefs.lastSync).toLocaleString() : 'Never';
+  info.innerHTML = `
+    <strong>Token:</strong> set ✓<br>
+    <strong>Gist:</strong> ${gistUrl ? `<a class="gist-link" href="${gistUrl}" target="_blank">${prefs.gistId}</a>` : 'Will be created on first sync'}<br>
+    <strong>Last synced:</strong> ${lastSync}
+  `;
+}
+
+// ─── GIST SYNC ────────────────────────────────────────────────────────────────
+
+const GIST_FILENAME = 'symptom-tracker-data.json';
+
+function setSyncBadge(state, msg) {
+  const el = document.getElementById('sync-badge');
+  if (!el) return;
+  el.className = `sync-badge ${state}`;
+  el.textContent = msg || '';
+}
+
+async function syncWithGist(manual = false) {
+  const prefs = getPrefs();
+  if (!prefs.githubToken) return;
+  if (!navigator.onLine) { setSyncBadge('offline', '○ offline'); return; }
+
+  setSyncBadge('syncing', '↻ syncing…');
+  try {
+    if (prefs.gistId) {
+      await pullFromGist(prefs);
+    }
+    await pushToGist(prefs);
+    prefs.lastSync = new Date().toISOString();
+    localStorage.setItem('ht_prefs', JSON.stringify(prefs));
+    setSyncBadge('ok', '✓ synced');
+    if (manual) updateSyncStatusUI();
+    renderHome();
+  } catch (e) {
+    setSyncBadge('err', '⚠ sync error');
+    console.error('Gist sync failed:', e);
+  }
+}
+
+async function pullFromGist(prefs) {
+  const res = await fetch(`https://api.github.com/gists/${prefs.gistId}`, {
+    headers: { Authorization: `token ${prefs.githubToken}`, Accept: 'application/vnd.github+json' }
+  });
+  if (!res.ok) throw new Error(`GET gist failed: ${res.status}`);
+  const data = await res.json();
+  const raw  = data.files?.[GIST_FILENAME]?.content;
+  if (!raw) return;
+  const remote = JSON.parse(raw);
+  if (!Array.isArray(remote.entries)) return;
+
+  // Merge: union by _key, prefer entry with more recent `time` on collision
+  remote.entries.forEach(entry => {
+    const key = entry._key;
+    if (!key) return;
+    const existing = localStorage.getItem(key);
+    if (!existing) {
+      const { _key, _type, ...rest } = entry;
+      localStorage.setItem(key, JSON.stringify(rest));
+    } else {
+      try {
+        const local = JSON.parse(existing);
+        if (new Date(entry.time) > new Date(local.time)) {
+          const { _key, _type, ...rest } = entry;
+          localStorage.setItem(key, JSON.stringify(rest));
+        }
+      } catch {}
+    }
+  });
+}
+
+async function pushToGist(prefs) {
+  const entries = getAllEntries();
+  const payload = JSON.stringify({ version: 1, entries }, null, 2);
+
+  if (!prefs.gistId) {
+    // Create gist
+    const res = await fetch('https://api.github.com/gists', {
+      method: 'POST',
+      headers: {
+        Authorization: `token ${prefs.githubToken}`,
+        Accept: 'application/vnd.github+json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        description: 'Symptom Tracker data',
+        public: false,
+        files: { [GIST_FILENAME]: { content: payload } }
+      })
+    });
+    if (!res.ok) throw new Error(`Create gist failed: ${res.status}`);
+    const data = await res.json();
+    prefs.gistId = data.id;
+    localStorage.setItem('ht_prefs', JSON.stringify(prefs));
+  } else {
+    // Update gist
+    const res = await fetch(`https://api.github.com/gists/${prefs.gistId}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `token ${prefs.githubToken}`,
+        Accept: 'application/vnd.github+json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ files: { [GIST_FILENAME]: { content: payload } } })
+    });
+    if (!res.ok) throw new Error(`Update gist failed: ${res.status}`);
+  }
+}
+
+// ─── BOOT ─────────────────────────────────────────────────────────────────────
+
+renderHome();
+syncWithGist();   // pull + push on load (no-op if no token configured)
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
