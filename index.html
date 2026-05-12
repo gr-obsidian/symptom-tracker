@@ -11,6 +11,8 @@
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+html { font-size: 18px; }
+
 :root {
   --bg:              #0d0d14;
   --card:            #16162a;
@@ -29,6 +31,28 @@
   --tag-bg:          #1e1e38;
   --input-bg:        rgba(255,255,255,0.05);
   --overlay-bg:      rgba(5,5,16,0.94);
+  --cs: dark;
+}
+
+[data-theme="light"] {
+  --bg:              #f4f1ec;
+  --card:            #ffffff;
+  --card2:           #ede9e2;
+  --border:          #ccc8be;
+  --text:            #1e1c2a;
+  --muted:           #706e90;
+  --accent:          #6558a0;
+  --accent-lit:      #4e4182;
+  --food-color:      #2e6644;
+  --food-bg:         rgba(46,102,68,0.1);
+  --headache-color:  #8a3a54;
+  --headache-bg:     rgba(138,58,84,0.1);
+  --vasograin-color: #2d4f7a;
+  --danger:          #8b2e2e;
+  --tag-bg:          #ebe7df;
+  --input-bg:        rgba(0,0,0,0.04);
+  --overlay-bg:      rgba(235,230,220,0.96);
+  --cs: light;
 }
 
 body {
@@ -38,6 +62,7 @@ body {
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   overscroll-behavior: none;
+  transition: background 0.2s, color 0.2s;
 }
 
 /* ── Screens ── */
@@ -145,7 +170,7 @@ body {
 .form-input {
   width: 100%; background: var(--input-bg); border: 1px solid var(--border);
   border-radius: 10px; color: var(--text); font-size: 0.95rem;
-  font-family: inherit; padding: 12px 14px; color-scheme: dark;
+  font-family: inherit; padding: 12px 14px; color-scheme: var(--cs);
 }
 .form-input:focus { outline: 2px solid var(--accent); border-color: transparent; }
 textarea.form-input { min-height: 80px; resize: vertical; line-height: 1.5; }
@@ -395,7 +420,7 @@ textarea.form-input::placeholder { color: var(--muted); }
 .settings-input {
   flex: 1; background: var(--input-bg); border: 1px solid var(--border);
   border-radius: 10px; color: var(--text); font-size: 0.88rem;
-  font-family: monospace; padding: 11px 12px; color-scheme: dark;
+  font-family: monospace; padding: 11px 12px; color-scheme: var(--cs);
 }
 .settings-input:focus { outline: 2px solid var(--accent); border-color: transparent; }
 .settings-btn {
@@ -430,7 +455,7 @@ textarea.form-input::placeholder { color: var(--muted); }
 .trigger-add-input {
   flex: 1; background: var(--input-bg); border: 1px solid var(--border);
   border-radius: 8px; color: var(--text); font-size: 0.88rem;
-  padding: 8px 12px; font-family: inherit; color-scheme: dark;
+  padding: 8px 12px; font-family: inherit; color-scheme: var(--cs);
 }
 .trigger-add-input:focus { outline: 1px solid var(--accent); }
 .trigger-add-btn {
@@ -447,6 +472,7 @@ textarea.form-input::placeholder { color: var(--muted); }
   <div class="header">
     <h1>🧠 Symptom Tracker</h1>
     <span class="sync-badge" id="sync-badge"></span>
+    <button class="hdr-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle light/dark"></button>
     <button class="hdr-btn" onclick="showSettings()" title="Settings">⚙</button>
   </div>
   <div class="scroll-content">
@@ -1581,8 +1607,34 @@ async function pushToGist(prefs) {
   }
 }
 
+// ─── THEME ────────────────────────────────────────────────────────────────────
+
+function initTheme() {
+  const prefs = getPrefs();
+  const theme = prefs.theme || 'light';
+  applyTheme(theme);
+}
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  const btn = document.getElementById('theme-btn');
+  if (btn) btn.textContent = theme === 'light' ? '🌙' : '☀️';
+  document.querySelector('meta[name="theme-color"]').content =
+    theme === 'light' ? '#f4f1ec' : '#16162a';
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'light';
+  const next = current === 'light' ? 'dark' : 'light';
+  const prefs = getPrefs();
+  prefs.theme = next;
+  localStorage.setItem('ht_prefs', JSON.stringify(prefs));
+  applyTheme(next);
+}
+
 // ─── BOOT ─────────────────────────────────────────────────────────────────────
 
+initTheme();
 renderHome();
 syncWithGist();   // pull + push on load (no-op if no token configured)
 
