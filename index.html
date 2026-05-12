@@ -666,7 +666,8 @@ textarea.form-input::placeholder { color: var(--muted); }
       <p class="settings-desc">
         Enter a GitHub Personal Access Token to sync data across devices.
         Only needs the <span class="scope-chip">gist</span> scope — no other permissions required.
-        Your data is stored in a <strong>secret</strong> (private) Gist.
+        Your data is stored in a <strong>secret</strong> (private) Gist.<br>
+        <strong>Important:</strong> use a <strong>classic</strong> token (not fine-grained) — fine-grained tokens don't support the Gist API.
       </p>
       <div class="settings-row">
         <input class="settings-input" type="password" id="pat-input" placeholder="ghp_xxxxxxxxxxxx" autocomplete="off" spellcheck="false">
@@ -1426,8 +1427,12 @@ function showSettings() {
 }
 
 function savePAT() {
-  const val = document.getElementById('pat-input').value.trim();
+  const val = document.getElementById('pat-input').value.trim().replace(/\s/g, '');
   if (!val || val.startsWith('•')) return;
+  if (!val.startsWith('ghp_') && !val.startsWith('github_pat_')) {
+    alert('Token should start with ghp_ — make sure you created a classic token (not fine-grained).');
+    return;
+  }
   const prefs = getPrefs();
   prefs.githubToken = val;
   delete prefs.gistId;    // new token → create fresh gist
@@ -1500,14 +1505,16 @@ async function syncWithGist(manual = false) {
     if (manual) updateSyncStatusUI();
     renderHome();
   } catch (e) {
-    setSyncBadge('err', '⚠ sync error');
+    const is401 = e.message && e.message.includes('401');
+    setSyncBadge('err', is401 ? '⚠ bad token' : '⚠ sync error');
+    if (is401) alert('Gist sync failed: invalid token (401).\n\nMake sure you used a classic token (starts with ghp_) with the gist scope — fine-grained tokens do not support the Gist API.');
     console.error('Gist sync failed:', e);
   }
 }
 
 async function pullFromGist(prefs) {
   const res = await fetch(`https://api.github.com/gists/${prefs.gistId}`, {
-    headers: { Authorization: `token ${prefs.githubToken}`, Accept: 'application/vnd.github+json' }
+    headers: { Authorization: `Bearer ${prefs.githubToken}`, Accept: 'application/vnd.github+json' }
   });
   if (!res.ok) throw new Error(`GET gist failed: ${res.status}`);
   const data = await res.json();
@@ -1545,7 +1552,7 @@ async function pushToGist(prefs) {
     const res = await fetch('https://api.github.com/gists', {
       method: 'POST',
       headers: {
-        Authorization: `token ${prefs.githubToken}`,
+        Authorization: `Bearer ${prefs.githubToken}`,
         Accept: 'application/vnd.github+json',
         'Content-Type': 'application/json'
       },
@@ -1564,7 +1571,7 @@ async function pushToGist(prefs) {
     const res = await fetch(`https://api.github.com/gists/${prefs.gistId}`, {
       method: 'PATCH',
       headers: {
-        Authorization: `token ${prefs.githubToken}`,
+        Authorization: `Bearer ${prefs.githubToken}`,
         Accept: 'application/vnd.github+json',
         'Content-Type': 'application/json'
       },
