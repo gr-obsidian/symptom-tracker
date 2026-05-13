@@ -1514,6 +1514,22 @@ function setSyncBadge(state, msg) {
   el.textContent = msg || '';
 }
 
+async function findExistingGist(token) {
+  // Search user's gists for one containing our data file (handles second-device setup)
+  for (let page = 1; page <= 5; page++) {
+    const res = await fetch(`https://api.github.com/gists?per_page=100&page=${page}`, {
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' }
+    });
+    if (!res.ok) throw new Error(`List gists failed: ${res.status}`);
+    const gists = await res.json();
+    if (!gists.length) break;
+    const found = gists.find(g => g.files && g.files[GIST_FILENAME]);
+    if (found) return found.id;
+    if (gists.length < 100) break;
+  }
+  return null;
+}
+
 async function syncWithGist(manual = false) {
   const prefs = getPrefs();
   if (!prefs.githubToken) return;
@@ -1521,6 +1537,14 @@ async function syncWithGist(manual = false) {
 
   setSyncBadge('syncing', '↻ syncing…');
   try {
+    // On a new device there's no gistId — find the existing one before creating a new one
+    if (!prefs.gistId) {
+      const existingId = await findExistingGist(prefs.githubToken);
+      if (existingId) {
+        prefs.gistId = existingId;
+        localStorage.setItem('ht_prefs', JSON.stringify(prefs));
+      }
+    }
     if (prefs.gistId) {
       await pullFromGist(prefs);
     }
